@@ -19,7 +19,6 @@
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -399,7 +398,7 @@ final class SystemCallFilter {
      * This is best effort and OS and architecture dependent. It may throw any Throwable.
      * @return 0 if we can do this for application threads, 1 for the entire process
      */
-    static int init(Path tmpFile) throws Exception {
+    static int init() throws Exception {
         if (Constants.LINUX) {
             return linuxImpl();
         } else {
