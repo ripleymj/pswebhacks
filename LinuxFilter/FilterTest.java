@@ -14,7 +14,7 @@ public class FilterTest {
 		br.close();
 		System.out.println("Done: " + p.waitFor());
 		
-		SystemCallFilter.init();
+		SystemCallFilter.main(null);
 		
 		p = pb.start();
 		br = new BufferedReader(new InputStreamReader(p.getInputStream()));
