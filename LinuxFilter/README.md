@@ -103,5 +103,22 @@ WLS. It turns out that, yes, it can.
 
 ## Caveats
 
+This is a lab experiment. It is being published to start a conversation on how
+to better defend applications. YOU ARE ULTIMATELY RESPONSIBLE FOR THE SECURITY
+OF YOUR SYSTEMS! Analyze and experiment, then join the conversation. Do not
+blindly trust something you found on the internet.
+
+To the extent that this works, it is only possible on x86-64 Linux with a modern
+kernel. It has been tried against PeopleTools 8.56 with Java 8. As Elasticsearch
+has demonstrated, similar protections can be developed for other platforms from
+within Java.
+
+This is only capable of defending against attacks that use the current sequence
+of steps where a script is uploaded and then executed. With a little creativity,
+you can find alternate ways of attacking a system, such as running pure Java
+code in the existing JVM instance, writing a crontab entry, or modifying
+bashrc/bash_profile to execute on next login. None of these attacks are easily
+addressable via seccomp.
+
 ## A Solution
 
