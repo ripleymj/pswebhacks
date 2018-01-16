@@ -1,9 +1,9 @@
-<%@ page import="java.io.*,java.util.*,java.lang.reflect.Method,psft.pt8.jb.JBEntry,psft.pt8.net.NetSession" %>
+<%@ page import="java.io.*,java.util.*" %>
 
 <!DOCTYPE html>
 <html>
 <body>
-<h2>Test LS</h2>
+<h2>Test ls -l /tmp</h2>
 <pre>
 <%
 	ProcessBuilder pb = new ProcessBuilder("ls", "-l", "/tmp");
