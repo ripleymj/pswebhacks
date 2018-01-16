@@ -122,3 +122,46 @@ addressable via seccomp.
 
 ## A Solution
 
+After SystemCallFilter.java has been extracted from Elasticsearch, some effort
+is needed to scrub out the other operating systems, and cut dependencies on the
+rest of the Elasticsearch code base. Constants.java is one of those remaining
+dependencies.
+
+Before doing any work with this in WebLogic, it should probably be moved to a
+locally relevant Java package.
+
+### Standalone Java
+
+After cloning this repository, and changing into the LinuxFilter directory,
+compile the Java classes like so:
+
+```
+javac -cp ../jna-4.5.1.jar Constants.java FilterTest.java SystemCallFilter.java
+```
+
+The FilterTest program can now be run like this:
+
+```
+java -cp ../jna-4.5.1.jar:. FilterTest
+```
+```
+total 0
+drwxr-xr-x 2 ripleymj ripleymj 18 Jan 15 22:52 hsperfdata_ripleymj
+drwxr-xr-x 2 ripleymj ripleymj  6 Jan 14 11:20 jna--1175144892
+Done: 0
+Linux seccomp filter installation successful, threads: all
+Exception in thread "main" java.io.IOException: Cannot run program "ls": error=13, Permission denied
+        at java.lang.ProcessBuilder.start(ProcessBuilder.java:1048)
+        at FilterTest.main(FilterTest.java:19)
+Caused by: java.io.IOException: error=13, Permission denied
+        at java.lang.UNIXProcess.forkAndExec(Native Method)
+        at java.lang.UNIXProcess.<init>(UNIXProcess.java:247)
+        at java.lang.ProcessImpl.start(ProcessImpl.java:134)
+        at java.lang.ProcessBuilder.start(ProcessBuilder.java:1029)
+        ... 1 more
+```
+
+Inside FilterTest.java, ProcessBuilder runs `ls -l /tmp` and prints the output.
+On line #17, seccomp is invoked to drop privileges. After the filter is
+installed, `ls -l /tmp` is attempted again. If seccomp was successful, this
+will fail.
