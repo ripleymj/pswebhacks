@@ -120,6 +120,13 @@ code in the existing JVM instance, writing a crontab entry, or modifying
 bashrc/bash_profile to execute on next login. None of these attacks are easily
 addressable via seccomp.
 
+This type of mitigation is only relevant to the web tier of PeopleSoft. App,
+batch, and database all rely on process forking, though there may be other
+syscalls you're willing to revoke. You will also need a much different loading
+mechanism. This demo is not exclusive to PeopleSoft, and could load into any
+WebLogic instance, but we can't make broad assumptions about the functionality
+required for other apps hosted on WebLogic.
+
 ## A Solution
 
 After SystemCallFilter.java has been extracted from Elasticsearch, some effort
@@ -165,3 +172,135 @@ Inside FilterTest.java, ProcessBuilder runs `ls -l /tmp` and prints the output.
 On line #17, seccomp is invoked to drop privileges. After the filter is
 installed, `ls -l /tmp` is attempted again. If seccomp was successful, this
 will fail.
+
+### WebLogic
+
+If you have exploit code for WebLogic, or even the proof-of-concept code, now
+would be a good time to go get it. If you want to play it safe, take exec.jsp
+from this repository and copy it to the PORTAL.war directory on a web server.
+Now browse http://peoplehost.peopledomain:8000/exec.jsp and it should produce a
+listing of the contents of your /tmp directory.
+
+Now you need to compile and package the syscall filter. Compile:
+
+```
+javac -cp ../jna-4.5.1.jar Constants.java SystemCallFilter.java
+```
+
+and package:
+
+```
+jar cvf syscallfilter.jar *class
+```
+```
+added manifest
+adding: Constants.class(in = 2107) (out= 1243)(deflated 41%)
+adding: SystemCallFilter$Arch.class(in = 546) (out= 370)(deflated 32%)
+adding: SystemCallFilter.class(in = 7503) (out= 3504)(deflated 53%)
+adding: SystemCallFilter$LinuxLibrary.class(in = 473) (out= 248)(deflated 47%)
+adding: SystemCallFilter$SockFilter.class(in = 439) (out= 312)(deflated 28%)
+adding: SystemCallFilter$SockFProg.class(in = 1509) (out= 869)(deflated 42%)
+```
+
+Copy `syscallfilter.jar` and `jna-4.5.1.jar` to `.../webserv/peoplesoft/lib/`.
+Now browse to the WebLogic Admin Console, and select
+"Startup And Shutdown Classes" from the home page.
+
+* Lock and Edit
+* Select New
+* Startup Class
+* Give it a fun name and specify your.package.name.SystemCallFilter
+* Target it to your favorite collection of servers
+
+After the wizard completes, open the item to edit advanced properties. If you're
+depending on this, "Failure is Fatal" is probably a good idea, so the server
+won't start without protection. For development, this is probably bad. Checking
+"Run Before Application Deployments" and "Run Before Application Activations"
+are both good ideas for maximum protection.
+
+That's it. Activate Changes and bounce WebLogic. When it returns, try browsing
+to exec.jsp or using exploit code again. You should get an HTTP Error 500 now,
+and in the log files, a more verbose version of the error from the command line.
+
+```
+
+####<Jan 14, 2018 1:42:56 PM EST> <Error> <HTTP> <olzfs92u26> <PIA> <[ACTIVE] ExecuteThread: '0' for queue: 'weblogic.kernel.Default (self-tuning)'> <<WLS Kernel>> <> <ebf8ead6-8ce2-4814-8d7f-fa70cef14495-00000012> <1515955376752> <[severity-value: 8] [rid: 0] [partition-id: 0] [partition-name: DOMAIN] > <BEA-101019> <[ServletContext@201529124[app:peoplesoft module:/ path:null spec-version:3.1]] Servlet failed with an IOException.
+java.io.IOException: Cannot run program "ls": error=13, Permission denied
+        at java.lang.ProcessBuilder.start(ProcessBuilder.java:1048)
+        at jsp_servlet.__exec._jspService(__exec.java:84)
+        at weblogic.servlet.jsp.JspBase.service(JspBase.java:35)
+        at weblogic.servlet.internal.StubSecurityHelper$ServletServiceAction.run(StubSecurityHelper.java:286)
+        at weblogic.servlet.internal.StubSecurityHelper$ServletServiceAction.run(StubSecurityHelper.java:260)
+        at weblogic.servlet.internal.StubSecurityHelper.invokeServlet(StubSecurityHelper.java:137)
+        at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:350)
+        at weblogic.servlet.internal.ServletStubImpl.onAddToMapException(ServletStubImpl.java:489)
+        at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:376)
+        at weblogic.servlet.internal.TailFilter.doFilter(TailFilter.java:25)
+        at weblogic.servlet.internal.FilterChainImpl.doFilter(FilterChainImpl.java:78)
+        at weblogic.websocket.tyrus.TyrusServletFilter.doFilter(TyrusServletFilter.java:266)
+        at weblogic.servlet.internal.FilterChainImpl.doFilter(FilterChainImpl.java:78)
+        at psft.pt8.psfilter.doFilter(psfilter.java:109)
+        at weblogic.servlet.internal.FilterChainImpl.doFilter(FilterChainImpl.java:78)
+        at weblogic.servlet.internal.WebAppServletContext$ServletInvocationAction.wrapRun(WebAppServletContext.java:3654)
+        at weblogic.servlet.internal.WebAppServletContext$ServletInvocationAction.run(WebAppServletContext.java:3620)
+        at weblogic.security.acl.internal.AuthenticatedSubject.doAs(AuthenticatedSubject.java:326)
+        at weblogic.security.service.SecurityManager.runAsForUserCode(SecurityManager.java:196)
+        at weblogic.servlet.provider.WlsSecurityProvider.runAsForUserCode(WlsSecurityProvider.java:203)
+        at weblogic.servlet.provider.WlsSubjectHandle.run(WlsSubjectHandle.java:71)
+        at weblogic.servlet.internal.WebAppServletContext.doSecuredExecute(WebAppServletContext.java:2423)
+        at weblogic.servlet.internal.WebAppServletContext.securedExecute(WebAppServletContext.java:2280)
+        at weblogic.servlet.internal.WebAppServletContext.execute(WebAppServletContext.java:2258)
+        at weblogic.servlet.internal.ServletRequestImpl.runInternal(ServletRequestImpl.java:1626)
+        at weblogic.servlet.internal.ServletRequestImpl.run(ServletRequestImpl.java:1586)
+        at weblogic.servlet.provider.ContainerSupportProviderImpl$WlsRequestExecutor.run(ContainerSupportProviderImpl.java:270)
+        at weblogic.invocation.ComponentInvocationContextManager._runAs(ComponentInvocationContextManager.java:348)
+        at weblogic.invocation.ComponentInvocationContextManager.runAs(ComponentInvocationContextManager.java:333)
+        at weblogic.work.LivePartitionUtility.doRunWorkUnderContext(LivePartitionUtility.java:54)
+        at weblogic.work.PartitionUtility.runWorkUnderContext(PartitionUtility.java:41)
+        at weblogic.work.SelfTuningWorkManagerImpl.runWorkUnderContext(SelfTuningWorkManagerImpl.java:617)
+        at weblogic.work.ExecuteThread.execute(ExecuteThread.java:397)
+        at weblogic.work.ExecuteThread.run(ExecuteThread.java:346)
+Caused By: java.io.IOException: error=13, Permission denied
+        at java.lang.UNIXProcess.forkAndExec(Native Method)
+        at java.lang.UNIXProcess.<init>(UNIXProcess.java:247)
+        at java.lang.ProcessImpl.start(ProcessImpl.java:134)
+        at java.lang.ProcessBuilder.start(ProcessBuilder.java:1029)
+        at jsp_servlet.__exec._jspService(__exec.java:84)
+        at weblogic.servlet.jsp.JspBase.service(JspBase.java:35)
+        at weblogic.servlet.internal.StubSecurityHelper$ServletServiceAction.run(StubSecurityHelper.java:286)
+        at weblogic.servlet.internal.StubSecurityHelper$ServletServiceAction.run(StubSecurityHelper.java:260)
+        at weblogic.servlet.internal.StubSecurityHelper.invokeServlet(StubSecurityHelper.java:137)
+        at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:350)
+        at weblogic.servlet.internal.ServletStubImpl.onAddToMapException(ServletStubImpl.java:489)
+        at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:376)
+        at weblogic.servlet.internal.TailFilter.doFilter(TailFilter.java:25)
+        at weblogic.servlet.internal.FilterChainImpl.doFilter(FilterChainImpl.java:78)
+        at weblogic.websocket.tyrus.TyrusServletFilter.doFilter(TyrusServletFilter.java:266)
+        at weblogic.servlet.internal.FilterChainImpl.doFilter(FilterChainImpl.java:78)
+        at psft.pt8.psfilter.doFilter(psfilter.java:109)
+        at weblogic.servlet.internal.FilterChainImpl.doFilter(FilterChainImpl.java:78)
+        at weblogic.servlet.internal.WebAppServletContext$ServletInvocationAction.wrapRun(WebAppServletContext.java:3654)
+        at weblogic.servlet.internal.WebAppServletContext$ServletInvocationAction.run(WebAppServletContext.java:3620)
+        at weblogic.security.acl.internal.AuthenticatedSubject.doAs(AuthenticatedSubject.java:326)
+        at weblogic.security.service.SecurityManager.runAsForUserCode(SecurityManager.java:196)
+        at weblogic.servlet.provider.WlsSecurityProvider.runAsForUserCode(WlsSecurityProvider.java:203)
+        at weblogic.servlet.provider.WlsSubjectHandle.run(WlsSubjectHandle.java:71)
+        at weblogic.servlet.internal.WebAppServletContext.doSecuredExecute(WebAppServletContext.java:2423)
+        at weblogic.servlet.internal.WebAppServletContext.securedExecute(WebAppServletContext.java:2280)
+        at weblogic.servlet.internal.WebAppServletContext.execute(WebAppServletContext.java:2258)
+        at weblogic.servlet.internal.ServletRequestImpl.runInternal(ServletRequestImpl.java:1626)
+        at weblogic.servlet.internal.ServletRequestImpl.run(ServletRequestImpl.java:1586)
+        at weblogic.servlet.provider.ContainerSupportProviderImpl$WlsRequestExecutor.run(ContainerSupportProviderImpl.java:270)
+        at weblogic.invocation.ComponentInvocationContextManager._runAs(ComponentInvocationContextManager.java:348)
+        at weblogic.invocation.ComponentInvocationContextManager.runAs(ComponentInvocationContextManager.java:333)
+        at weblogic.work.LivePartitionUtility.doRunWorkUnderContext(LivePartitionUtility.java:54)
+        at weblogic.work.PartitionUtility.runWorkUnderContext(PartitionUtility.java:41)
+        at weblogic.work.SelfTuningWorkManagerImpl.runWorkUnderContext(SelfTuningWorkManagerImpl.java:617)
+        at weblogic.work.ExecuteThread.execute(ExecuteThread.java:397)
+        at weblogic.work.ExecuteThread.run(ExecuteThread.java:346)
+>
+```
+
+### References
+
+* https://docs.oracle.com/cd/E72987_01/wls/WLACH/taskhelp/startup_shutdown/UseStartupAndShutdownClasses.html
