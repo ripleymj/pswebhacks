@@ -6,7 +6,7 @@ Several vulnerabilities in WebLogic, and especially Struts, have been discovered
 recently, and are frequently exploited among PeopleSoft users. All of the
 published proof-of-concept code uploads a script, then executes it on the host.
 This is frequently Python for Linux, and Powershell for Windows. Once an
-attacker is inside the system running arbitrary code, it should be considered
+attacker is inside a system running arbitrary code, it should be considered
 completely compromised.
 
 ## Some background - the kernel
@@ -19,7 +19,11 @@ Seccomp allows us to give up our ability to use all 300, prior to any other
 checks, like user permissions (root / UID 0), capabilities (CAP_SYS_ADMIN),
 or a MAC LSM like SELinux. Because changing the seccomp policy is also a system
 call, policy will frequently remove it as well, removing the ability of the
-program or an attacker to modify the policy.
+program or an attacker to modify the policy. Seccomp policy has three actions:
+deny, kill, or allow. Deny will return an error to the calling application,
+kill will end the offending program, and allow will continue evaluation of the
+syscall through all the means (UID, MAC LSM, audit) that exist without seccomp.
+Seccomp cannot grant functionality that would not have been granted without it.
 
 You will frequently find references to seccomp in things like web browser
 render processes, where you want to prevent parse errors in untrusted files
@@ -37,17 +41,18 @@ basically remove all syscall abililty except reading and writing to file
 handles which had already been opened.
 
 In 2.6.23, this functionality was moved to the prctl() syscall, and the /proc
-interface was removed. This version saw very limited use.
+interface was removed. Version 1 saw very limited use.
 
 ### Seccomp version 2
 
 In kernel 3.5, the ability to specify your own functionality via a BPF program
 was added, also via prctl(). You may remember the Berkeley Packet Filter (BPF)
 from programs like tcpdump. BPF is a type of virtual machine that allows small,
-provably safe programs to be loaded into the kernel. With tcpdump, they match
-specified packets and forward them back to userland. With seccomp, they match
-syscalls and allow or deny them. Because its operations mainly consist of load,
-compare, and jump you may recognize more as a type of assembly language.
+provably safe programs to be loaded into the kernel. With tcpdump, these
+programs match specified packets and forward them back to userland. With
+seccomp, they match syscalls and allow or deny them. Because BPF operations
+mainly consist of load, compare, and jump, you may recognize more as a type of
+assembly language.
 
 ### Seccomp version 3
 
@@ -55,12 +60,13 @@ In kernel 3.17, the seccomp() syscall was added. The prctl() call was deemed to
 be unwieldy, so seccomp() was created. In provides better handling for multi-
 threaded applications.
 
-### Distro support
+### Linux distribution support
 
 Because Linux distribution maintainers love to backport functionality, best
 practice recommends probing for supported interfaces, rather than making
-assumptions based on kernel version number. Unless you've done something
-strange, this is the basic scene:
+assumptions based on kernel version number. Seccomp is also a configurable
+option at the time of kernel compilation, and can be removed. Unless you've
+done something strange, this is the basic scene:
 
 * RedHat Linux 6 - no usable support for seccomp.
 * Oracle Linux 6 - version 3 via UEK4, no support in RHCK.
@@ -82,8 +88,8 @@ would launch Java. In our environment, systemd controls NodeManager, which is
 a shell script, launching Java, launching a shell script, launching Java.
 
 For some reason, I remembered that Elasticsearch uses seccomp. As a fellow Java
-application, that fortunately happens to be open-source, I was curious how they
-were achieving this. A quick Google search does not turn up many other
+application, which fortunately happens to be open-source, we can see how they
+are achieving this. A quick Google search does not turn up many other
 references, and most of them are centered around Android and their
 implementation of "Java". Elasticsearch directly interfaces with seccomp via
 the Java Native Access library. It also has tricks to restrict its abilities
@@ -223,7 +229,6 @@ to exec.jsp or using exploit code again. You should get an HTTP Error 500 now,
 and in the log files, a more verbose version of the error from the command line.
 
 ```
-
 ####<Jan 14, 2018 1:42:56 PM EST> <Error> <HTTP> <olzfs92u26> <PIA> <[ACTIVE] ExecuteThread: '0' for queue: 'weblogic.kernel.Default (self-tuning)'> <<WLS Kernel>> <> <ebf8ead6-8ce2-4814-8d7f-fa70cef14495-00000012> <1515955376752> <[severity-value: 8] [rid: 0] [partition-id: 0] [partition-name: DOMAIN] > <BEA-101019> <[ServletContext@201529124[app:peoplesoft module:/ path:null spec-version:3.1]] Servlet failed with an IOException.
 java.io.IOException: Cannot run program "ls": error=13, Permission denied
         at java.lang.ProcessBuilder.start(ProcessBuilder.java:1048)
