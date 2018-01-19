@@ -32,7 +32,7 @@ import com.sun.jna.Pointer;
  * achieving "remote execution" exploits.
  */
 // not an example of how to write code!!!
-final class SystemCallFilter {
+public class SystemCallFilter {
 
 	// windows impl via job ActiveProcessLimit
 	public static void main(String[] args) {
