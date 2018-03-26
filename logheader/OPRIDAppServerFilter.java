@@ -54,7 +54,6 @@ public class SimpleFilter implements Filter
 				if (element.startsWith("portalSessionProps"))
 				{
 					sessionPropsName = element;
-					servletContext.log("MJR Found portalSession: " + sessionPropsName);
 				}
 			}
 
