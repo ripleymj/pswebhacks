@@ -14,12 +14,13 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import psft.pt8.jb.JBEntry;
+import psft.pt8.net.NetSession;
 import psft.pt8.util.PSSessionProp;
 
 @WebFilter(filterName = "SimpleFilter",
 		urlPatterns = { "/psp/*", "/psc/*" })
 
-public class SimpleFilter implements Filter
+public class OPRIDAppServerFilter implements Filter
 {
 	private FilterConfig filterConfig;
 
@@ -64,7 +65,11 @@ public class SimpleFilter implements Filter
 				JBEntry jbe = (JBEntry) props.get("JBridge");
 				if (jbe != null)
 				{
-					response.addHeader("X-PS-APPSERVER", jbe.getSession().getCurrentAppServer());
+					NetSession ns = (psft.pt8.net.NetSession) jbe.getSession();
+					if(ns != null)
+					{
+						response.addHeader("X-PS-APPSERVER", ns.getCurrentAppServer());
+					}
 				}
 			}
 		}
