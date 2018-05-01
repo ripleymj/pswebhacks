@@ -1,61 +1,19 @@
 # WindowsFilter
 
-## The Problem
+## Background
 
-Several vulnerabilities in WebLogic, and especially Struts, have been discovered
-recently, and are frequently exploited among PeopleSoft users. Much of the
-published proof-of-concept code uploads a script, then executes it on the host.
-This is frequently Python for Linux, and Powershell for Windows. Once an
-attacker is inside a system running arbitrary code, it should be considered
-completely compromised.
+This started as an attempt at porting the seccomp functionality from
+Elasticsearch into WebLogic. After realizing they had also developed similar
+functionality for Windows, this is an attempt to port that as well.
 
-## Some background - prior art
-
-For some reason, I remembered that Elasticsearch attempts to restrict remote
-code execution. As a fellow Java application, which fortunately happens to be
-open-source, we can see how they are achieving this.
-
-WebLogic contains "Startup Class" functionality, and though I'd never
-explored it, I started to wonder if Elasticsearch's example could be glued to
-WLS. It turns out that, yes, it can.
-
-### References
-
-* https://www.elastic.co/guide/en/elasticsearch/reference/master/_system_call_filter_check.html
-* https://github.com/elastic/elasticsearch/blob/master/server/src/main/java/org/elasticsearch/bootstrap/SystemCallFilter.java
-* https://github.com/java-native-access/jna
-* https://docs.oracle.com/cd/E72987_01/wls/WLACH/taskhelp/startup_shutdown/UseStartupAndShutdownClasses.html
-* https://msdn.microsoft.com/en-us/library/windows/desktop/ms684147(v=vs.85).aspx
-
-## Caveats
-
-This is a lab experiment. It is being published to start a conversation on how
-to better defend applications. YOU ARE ULTIMATELY RESPONSIBLE FOR THE SECURITY
-OF YOUR SYSTEMS! Analyze and experiment, then join the conversation. Do not
-blindly trust something you found on the internet.
-
-To the extent that this works, it is only possible on Windows. It has been
-tried against PeopleTools 8.56 with Java 8. As Elasticsearch has demonstrated,
-similar protections can be developed for other platforms from within Java.
-
-This is only capable of defending against attacks that use the current sequence
-of steps where a script is uploaded and then executed. With a little creativity,
-you can find alternate ways of attacking a system, such as running pure Java
-code in the existing JVM instance. None of these attacks are easily
-addressable with this mitigation
-
-This type of mitigation is only relevant to the web tier of PeopleSoft. App,
-batch, and database all rely on process forking. You will also need a much
-different loading mechanism. This demo is not exclusive to PeopleSoft, and
-could load into any WebLogic instance, but we can't make broad assumptions
-about the functionality required for other apps hosted on WebLogic.
+Please see the [LinuxFilter README](../LinuxFilter/README.md) for the complete
+backstory.
 
 ## A Solution
 
 After SystemCallFilter.java has been extracted from Elasticsearch, some effort
 is needed to scrub out the other operating systems, and cut dependencies on the
-rest of the Elasticsearch code base. Constants.java is one of those remaining
-dependencies.
+rest of the Elasticsearch code base.
 
 Before doing any work with this in WebLogic, it should probably be moved to a
 locally relevant Java package.
@@ -91,12 +49,9 @@ java -cp ..\jna-4.5.1.jar;. FilterTest
 04/30/2018  12:01 PM               758 FilterTest.java
 04/30/2018  12:01 PM               202 JNAKernel32Library$1.class
 04/30/2018  12:01 PM               546 JNAKernel32Library$Holder.class
-04/30/2018  12:01 PM             1,080 JNAKernel32Library$JOBOBJECT_BASIC_LIMIT_
-INFORMATION.class
-04/30/2018  12:01 PM               894 JNAKernel32Library$MemoryBasicInformation
-.class
-04/30/2018  12:01 PM             1,077 JNAKernel32Library$NativeHandlerCallback.
-class
+04/30/2018  12:01 PM             1,080 JNAKernel32Library$JOBOBJECT_BASIC_LIMIT_INFORMATION.class
+04/30/2018  12:01 PM               894 JNAKernel32Library$MemoryBasicInformation.class
+04/30/2018  12:01 PM             1,077 JNAKernel32Library$NativeHandlerCallback.class
 04/30/2018  12:01 PM               419 JNAKernel32Library$SizeT.class
 04/30/2018  12:01 PM             3,480 JNAKernel32Library.class
 01/19/2018  02:11 PM            11,870 JNAKernel32Library.java
@@ -201,3 +156,4 @@ java.io.IOException: Cannot run program "cmd": CreateProcess error=1816, Not eno
 ### References
 
 * https://docs.oracle.com/cd/E72987_01/wls/WLACH/taskhelp/startup_shutdown/UseStartupAndShutdownClasses.html
+* https://msdn.microsoft.com/en-us/library/windows/desktop/ms684147(v=vs.85).aspx
